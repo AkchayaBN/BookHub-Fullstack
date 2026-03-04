@@ -146,7 +146,7 @@ const BookCard: React.FC<BookCardProps> = ({ book, variant = 'default' }) => {
             <Star className="w-4 h-4 fill-gold text-gold" />
             <span className="text-sm font-medium">{book.rating}</span>
             <span className="text-sm text-muted-foreground">
-              ({book.reviewCount.toLocaleString()})
+              ({formatPrice(Number(book.price || 0))})
             </span>
           </div>
 

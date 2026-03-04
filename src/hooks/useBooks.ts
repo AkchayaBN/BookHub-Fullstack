@@ -1,173 +1,185 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { Book, transformDbBook } from '@/types/book';
 
-// Fetch all books
+export interface Book {
+  id: string;
+  title: string;
+  author: string;
+  price: number;
+  coverImage: string;
+  category?: string;
+  description?: string;
+  rating?: number;
+  reviewCount?: number;
+  isFeatured?: boolean;
+  isBestseller?: boolean;
+  createdAt?: string;
+}
+
+const API = 'http://localhost:5000/api/books';
+
+/* ------------------ ALL BOOKS ------------------ */
+
 export const useBooks = () => {
   return useQuery({
     queryKey: ['books'],
     queryFn: async (): Promise<Book[]> => {
-      const { data, error } = await supabase
-        .from('books')
-        .select('*')
-        .order('title');
-      
-      if (error) throw error;
-      return (data || []).map(transformDbBook);
+      const res = await fetch(API);
+      if (!res.ok) throw new Error('Failed to fetch books');
+
+      const data = await res.json();
+
+      return data.map((book: any) => ({
+        id: book.id,
+        title: book.title,
+        author: book.author,
+        price: book.price ?? 0,
+        coverImage: book.coverImage ?? '',
+        category: book.category ?? 'General',
+        description: book.description ?? '',
+        rating: book.rating ?? 4.5,
+        reviewCount: book.reviewCount ?? 100,
+        isFeatured: book.isFeatured ?? false,
+        isBestseller: book.isBestseller ?? false,
+        createdAt: book.createdAt ?? '',
+      }));
     },
   });
 };
 
-// Fetch a single book by ID
+/* ------------------ SINGLE BOOK ------------------ */
+
 export const useBook = (id: string | undefined) => {
   return useQuery({
     queryKey: ['book', id],
-    queryFn: async (): Promise<Book | null> => {
-      if (!id) return null;
-      
-      const { data, error } = await supabase
-        .from('books')
-        .select('*')
-        .eq('id', id)
-        .single();
-      
-      if (error) {
-        if (error.code === 'PGRST116') return null; // Not found
-        throw error;
-      }
-      return data ? transformDbBook(data) : null;
-    },
     enabled: !!id,
-  });
-};
-
-// Fetch bestsellers
-export const useBestsellers = () => {
-  return useQuery({
-    queryKey: ['books', 'bestsellers'],
-    queryFn: async (): Promise<Book[]> => {
-      const { data, error } = await supabase
-        .from('books')
-        .select('*')
-        .eq('is_bestseller', true)
-        .order('review_count', { ascending: false });
-      
-      if (error) throw error;
-      return (data || []).map(transformDbBook);
+    queryFn: async (): Promise<Book | null> => {
+      const res = await fetch(`${API}/${id}`);
+      if (!res.ok) return null;
+      return res.json();
     },
   });
 };
 
-// Fetch new arrivals
-export const useNewArrivals = () => {
-  return useQuery({
-    queryKey: ['books', 'new-arrivals'],
-    queryFn: async (): Promise<Book[]> => {
-      const { data, error } = await supabase
-        .from('books')
-        .select('*')
-        .eq('is_new_arrival', true)
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      return (data || []).map(transformDbBook);
-    },
-  });
-};
+/* ------------------ FEATURED ------------------ */
 
-// Fetch featured books
 export const useFeaturedBooks = () => {
   return useQuery({
     queryKey: ['books', 'featured'],
     queryFn: async (): Promise<Book[]> => {
-      const { data, error } = await supabase
-        .from('books')
-        .select('*')
-        .eq('is_featured', true)
-        .order('rating', { ascending: false });
-      
-      if (error) throw error;
-      return (data || []).map(transformDbBook);
+      const res = await fetch(API);
+      const data = await res.json();
+      return data.filter((b: Book) => b.isFeatured);
     },
   });
 };
 
-// Fetch books by category
+/* ------------------ BESTSELLERS ------------------ */
+
+export const useBestsellers = () => {
+  return useQuery({
+    queryKey: ['books', 'bestsellers'],
+    queryFn: async (): Promise<Book[]> => {
+      const res = await fetch(API);
+      const data = await res.json();
+      return data.filter((b: Book) => b.isBestseller);
+    },
+  });
+};
+
+/* ------------------ NEW ARRIVALS ------------------ */
+
+export const useNewArrivals = () => {
+  return useQuery({
+    queryKey: ['books', 'new'],
+    queryFn: async (): Promise<Book[]> => {
+      const res = await fetch(API);
+      const data = await res.json();
+
+      return data.sort(
+        (a: Book, b: Book) =>
+          new Date(b.createdAt || '').getTime() -
+          new Date(a.createdAt || '').getTime()
+      );
+    },
+  });
+};
+
+/* ------------------ CATEGORY ------------------ */
+
 export const useBooksByCategory = (category: string) => {
   return useQuery({
     queryKey: ['books', 'category', category],
-    queryFn: async (): Promise<Book[]> => {
-      const { data, error } = await supabase
-        .from('books')
-        .select('*')
-        .eq('category', category)
-        .order('title');
-      
-      if (error) throw error;
-      return (data || []).map(transformDbBook);
-    },
     enabled: !!category,
+    queryFn: async (): Promise<Book[]> => {
+      const res = await fetch(API);
+      const data = await res.json();
+      return data.filter((b: Book) => b.category === category);
+    },
   });
 };
 
-// Search books
+/* ------------------ SEARCH ------------------ */
+
 export const useSearchBooks = (query: string) => {
   return useQuery({
     queryKey: ['books', 'search', query],
     queryFn: async (): Promise<Book[]> => {
-      if (!query.trim()) {
-        const { data, error } = await supabase
-          .from('books')
-          .select('*')
-          .order('title');
-        
-        if (error) throw error;
-        return (data || []).map(transformDbBook);
-      }
+      const res = await fetch(API);
+      const data = await res.json();
 
-      const { data, error } = await supabase
-        .from('books')
-        .select('*')
-        .or(`title.ilike.%${query}%,author.ilike.%${query}%,isbn.ilike.%${query}%`)
-        .order('title');
-      
-      if (error) throw error;
-      return (data || []).map(transformDbBook);
+      if (!query.trim()) return data;
+
+      return data.filter((book: Book) =>
+        book.title.toLowerCase().includes(query.toLowerCase()) ||
+        book.author.toLowerCase().includes(query.toLowerCase())
+      );
     },
   });
 };
 
-// Get category book counts
-export const useCategoryBookCounts = () => {
-  return useQuery({
-    queryKey: ['books', 'category-counts'],
-    queryFn: async (): Promise<Record<string, number>> => {
-      const { data, error } = await supabase
-        .from('books')
-        .select('category');
-      
-      if (error) throw error;
-      
-      const counts: Record<string, number> = {};
-      (data || []).forEach(book => {
-        counts[book.category] = (counts[book.category] || 0) + 1;
-      });
-      return counts;
-    },
-  });
-};
+/* ------------------ COUNT ------------------ */
 
-// Get total book count
 export const useBookCount = () => {
   return useQuery({
     queryKey: ['books', 'count'],
     queryFn: async (): Promise<number> => {
-      const { count, error } = await supabase
-        .from('books')
-        .select('*', { count: 'exact', head: true });
-      
-      if (error) throw error;
-      return count || 0;
+      const res = await fetch(API);
+      const data = await res.json();
+      return data.length;
+    },
+  });
+};
+export const useCategoryBookCounts = () => {
+  return useQuery({
+    queryKey: ['books', 'category-counts'],
+    queryFn: async (): Promise<Record<string, number>> => {
+      const res = await fetch('http://localhost:5000/api/books');
+      if (!res.ok) throw new Error('Failed to fetch books');
+
+      const books = await res.json();
+
+      // predefined categories used by the UI
+      const counts: Record<string, number> = {
+        "Fiction": 0,
+        "Non-Fiction": 0,
+        "Science": 0,
+        "History": 0,
+        "Romance": 0,
+        "Mystery": 0,
+        "Fantasy": 0,
+        "Biography": 0,
+        "Self-Help": 0,
+        "Children": 0
+      };
+
+      books.forEach((book: any) => {
+        const category = book.category?.trim();
+        if (counts.hasOwnProperty(category)) {
+          counts[category]++;
+        }
+      });
+
+      return counts;
     },
   });
 };

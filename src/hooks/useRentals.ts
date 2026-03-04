@@ -1,102 +1,118 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { RentalDuration, RENTAL_PLANS } from '@/lib/currency';
-import { toast } from '@/hooks/use-toast';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/hooks/use-toast";
+
+const API_URL = "http://localhost:5000/api/rentals";
 
 interface Rental {
   id: string;
-  user_id: string;
-  book_id: string;
-  duration: string;
+  userId: string;
+  bookId: string;
+  planName: string;
+  durationInDays: number;
   price: number;
-  starts_at: string;
-  expires_at: string;
+  startsAt: string;
+  expiresAt: string;
   status: string;
-  created_at: string;
 }
 
-const getDurationDays = (duration: RentalDuration): number => {
-  switch (duration) {
-    case '1_month': return 30;
-    case '6_months': return 180;
-    case '1_year': return 365;
-  }
-};
-
 export const useUserRentals = () => {
-  const { user } = useAuth();
+  const { user, getToken } = useAuth();
+
   return useQuery({
-    queryKey: ['rentals', user?.id],
+    queryKey: ["rentals"],
     queryFn: async (): Promise<Rental[]> => {
-      const { data, error } = await supabase
-        .from('rentals')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return (data || []) as Rental[];
+      const token = await getToken();
+
+      const response = await fetch(`${API_URL}/my`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) throw new Error("Failed to fetch rentals");
+
+      return response.json();
     },
     enabled: !!user,
   });
 };
 
 export const useActiveRental = (bookId: string) => {
-  const { user } = useAuth();
+  const { user, getToken } = useAuth();
+
   return useQuery({
-    queryKey: ['rental', bookId, user?.id],
+    queryKey: ["rental", bookId],
     queryFn: async (): Promise<Rental | null> => {
-      const { data, error } = await supabase
-        .from('rentals')
-        .select('*')
-        .eq('book_id', bookId)
-        .eq('status', 'active')
-        .gte('expires_at', new Date().toISOString())
-        .maybeSingle();
-      if (error) throw error;
-      return data as Rental | null;
+      const token = await getToken();
+
+      const response = await fetch(`${API_URL}/check/${bookId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) return null;
+
+      return response.json();
     },
     enabled: !!user && !!bookId,
   });
 };
 
 export const useRentBook = () => {
-  const { user } = useAuth();
+  const { user, getToken } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ bookId, duration }: { bookId: string; duration: RentalDuration }) => {
-      if (!user) throw new Error('Please log in to rent books');
+    mutationFn: async ({
+      bookId,
+      durationInDays,
+      price,
+      planName,
+    }: {
+      bookId: string;
+      durationInDays: number;
+      price: number;
+      planName: string;
+    }) => {
+      if (!user) throw new Error("Please log in");
 
-      const plan = RENTAL_PLANS.find(p => p.id === duration);
-      if (!plan) throw new Error('Invalid rental plan');
+      const token = await getToken();
 
-      const startsAt = new Date();
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + getDurationDays(duration));
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          bookId,
+          durationInDays,
+          price,
+          planName,
+        }),
+      });
 
-      const { data, error } = await supabase
-        .from('rentals')
-        .insert({
-          user_id: user.id,
-          book_id: bookId,
-          duration,
-          price: plan.price,
-          starts_at: startsAt.toISOString(),
-          expires_at: expiresAt.toISOString(),
-        })
-        .select()
-        .single();
+      if (!response.ok) {
+        throw new Error("Rental failed");
+      }
 
-      if (error) throw error;
-      return data;
+      return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['rentals'] });
-      queryClient.invalidateQueries({ queryKey: ['rental'] });
-      toast({ title: 'Book rented!', description: 'You can now read this book online.' });
+      queryClient.invalidateQueries({ queryKey: ["rentals"] });
+      toast({
+        title: "Book rented!",
+        description: "You can now read this book.",
+      });
     },
     onError: (error: any) => {
-      toast({ title: 'Rental failed', description: error.message, variant: 'destructive' });
+      toast({
+        title: "Rental failed",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 };

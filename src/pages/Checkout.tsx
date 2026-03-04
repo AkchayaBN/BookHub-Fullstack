@@ -11,42 +11,88 @@ import { Separator } from '@/components/ui/separator';
 import { useCart } from '@/contexts/CartContext';
 import { toast } from '@/hooks/use-toast';
 import { formatPrice } from '@/lib/currency';
-
+import { useAuth } from '@/contexts/AuthContext';
 const Checkout: React.FC = () => {
   const navigate = useNavigate();
   const { items, getCartTotal, clearCart } = useCart();
   const [step, setStep] = useState(1);
   const [shippingMethod, setShippingMethod] = useState('standard');
   const [isProcessing, setIsProcessing] = useState(false);
-
+  const { user, getToken } = useAuth();
   const shippingCost = shippingMethod === 'express' ? 99 : shippingMethod === 'overnight' ? 199 : 0;
   const subtotal = getCartTotal();
   const tax = subtotal * 0.18; // GST 18%
   const total = subtotal + shippingCost + tax;
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (step < 3) {
-      setStep(step + 1);
-      return;
-    }
+  e.preventDefault();
 
-    setIsProcessing(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setIsProcessing(false);
+  if (step < 3) {
+    setStep(step + 1);
+    return;
+  }
 
-    const orderId = `BH-${Date.now().toString(36).toUpperCase()}`;
-    
-    clearCart();
-    
+  if (!user) {
     toast({
-      title: "Order Placed Successfully!",
-      description: `Your order #${orderId} has been confirmed.`,
+      title: "Login required",
+      description: "Please login before placing order",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  setIsProcessing(true);
+
+  // Simulate payment
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+
+  try {
+    const token = await getToken();
+
+    const orderItems = items.map(({ book, quantity }) => ({
+      bookId: book.id,
+      title: book.title,
+      author: book.author,
+      price: book.price,
+      quantity,
+    }));
+
+    const response = await fetch("http://localhost:5000/api/orders", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        items: orderItems,
+      }),
     });
 
-    navigate('/');
-  };
+    if (!response.ok) {
+      throw new Error("Order creation failed");
+    }
+
+    const data = await response.json();
+
+    clearCart();
+
+    toast({
+      title: "Order Placed Successfully!",
+      description: `Your order #${data.orderNumber} has been confirmed.`,
+    });
+
+    navigate("/order-tracking");
+
+  } catch (error: any) {
+    toast({
+      title: "Order Failed",
+      description: error.message,
+      variant: "destructive",
+    });
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   if (items.length === 0) {
     return (
