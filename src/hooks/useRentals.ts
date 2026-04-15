@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { API_URL } from "@/lib/api";
 
-const API_URL = "http://localhost:5000/api/rentals";
+const RENTALS_API_URL = `${API_URL}/rentals`;
 
 interface Rental {
   id: string;
@@ -24,7 +25,7 @@ export const useUserRentals = () => {
     queryFn: async (): Promise<Rental[]> => {
       const token = await getToken();
 
-      const response = await fetch(`${API_URL}/my`, {
+      const response = await fetch(`${RENTALS_API_URL}/my`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -46,7 +47,7 @@ export const useActiveRental = (bookId: string) => {
     queryFn: async (): Promise<Rental | null> => {
       const token = await getToken();
 
-      const response = await fetch(`${API_URL}/check/${bookId}`, {
+      const response = await fetch(`${RENTALS_API_URL}/check/${bookId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -80,7 +81,7 @@ export const useRentBook = () => {
 
       const token = await getToken();
 
-      const response = await fetch(API_URL, {
+      const response = await fetch(RENTALS_API_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -28,6 +28,8 @@ import CookiePolicy from "./pages/CookiePolicy";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import NotFound from "./pages/NotFound";
+import AdminDashboard from "./pages/AdminDashboard";
+import AdminGuard from "./components/AdminGuard";
 
 const queryClient = new QueryClient();
 
@@ -43,7 +45,7 @@ const App = () => (
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/books" element={<Books />} />
-                <Route path="/book/:id" element={<BookDetail />} />
+                <Route path="/books/:id" element={<BookDetail />} /> {/* ✅ was /book/:id */}
                 <Route path="/categories" element={<Categories />} />
                 <Route path="/wishlist" element={<Wishlist />} />
                 <Route path="/checkout" element={<Checkout />} />
@@ -62,6 +64,11 @@ const App = () => (
                 <Route path="/cookie-policy" element={<CookiePolicy />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
+                <Route path="/admin" element={
+                  <AdminGuard>
+                  <AdminDashboard />
+                  </AdminGuard>
+                  } />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

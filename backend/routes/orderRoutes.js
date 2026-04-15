@@ -14,30 +14,34 @@ const generateOrderNumber = () => {
 router.post("/", verifyToken, async (req, res) => {
   try {
     const userId = req.user.uid;
-    const { items } = req.body;
+    const { items, shippingCost = 0, tax = 0 } = req.body;
 
     if (!items || items.length === 0) {
       return res.status(400).json({ error: "Cart is empty" });
     }
 
-    const totalAmount = items.reduce(
+    const subtotal = items.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
     );
+    const totalAmount = subtotal + shippingCost + tax;
 
     const newOrder = {
       userId,
       orderNumber: generateOrderNumber(),
       items,
+      subtotal,
+      shippingCost,
+      tax,
       totalAmount,
       status: "pending",
       createdAt: new Date(),
     };
 
     const docRef = await db.collection("orders").add(newOrder);
-
     res.status(201).json({ id: docRef.id, ...newOrder });
   } catch (error) {
+    console.error("Create order error:", error.message);
     res.status(500).json({ error: error.message });
   }
 });
@@ -52,16 +56,27 @@ router.get("/my", verifyToken, async (req, res) => {
     const snapshot = await db
       .collection("orders")
       .where("userId", "==", userId)
-      .orderBy("createdAt", "desc")
-      .get();
+      .get(); // ✅ removed .orderBy to avoid Firestore index requirement
 
-    const orders = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    const orders = snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate
+            ? data.createdAt.toDate().toISOString()
+            : data.createdAt || null,
+        };
+      })
+      .sort((a, b) =>
+        new Date(b.createdAt || "").getTime() -
+        new Date(a.createdAt || "").getTime()
+      ); // ✅ sort in JS instead
 
     res.json(orders);
   } catch (error) {
+    console.error("Orders fetch error:", error.message);
     res.status(500).json({ error: error.message });
   }
 });
@@ -90,9 +105,9 @@ router.delete("/:id", verifyToken, async (req, res) => {
     }
 
     await docRef.update({ status: "cancelled" });
-
     res.json({ message: "Order cancelled" });
   } catch (error) {
+    console.error("Cancel order error:", error.message);
     res.status(500).json({ error: error.message });
   }
 });

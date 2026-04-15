@@ -28,6 +28,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { formatPrice } from "@/lib/currency";
+import { API_URL } from "@/lib/api";
 
 interface OrderItem {
   bookId: string;
@@ -56,7 +57,7 @@ const OrderTracking: React.FC = () => {
       const token = await getToken();
 
       const response = await fetch(
-        "http://localhost:5000/api/orders/my",
+        `${API_URL}/orders/my`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -76,7 +77,7 @@ const OrderTracking: React.FC = () => {
       const token = await getToken();
 
       const response = await fetch(
-        `http://localhost:5000/api/orders/${orderId}`,
+        `${API_URL}/orders/${orderId}`,
         {
           method: "DELETE",
           headers: {
@@ -151,13 +152,15 @@ const OrderTracking: React.FC = () => {
     }
   };
 
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-
+  const formatDate = (dateStr: any) => {
+  const date = dateStr?.toDate ? dateStr.toDate() : new Date(dateStr);
+  if (isNaN(date.getTime())) return 'Date unavailable';
+  return date.toLocaleDateString('en-IN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+};
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
@@ -196,8 +199,8 @@ const OrderTracking: React.FC = () => {
                         {getStatusIcon(order.status)}
                         <div>
                           <CardTitle className="text-lg">
-                            {order.orderNumber}
-                          </CardTitle>
+                           {order.orderNumber || `#${order.id.slice(0, 8).toUpperCase()}`}
+                           </CardTitle>
                           <p className="text-sm text-muted-foreground">
                             Ordered on {formatDate(order.createdAt)}
                           </p>

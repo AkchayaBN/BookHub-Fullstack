@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/contexts/CartContext';
 import { useWishlist } from '@/contexts/WishlistContext';
+import { isAdminEmail } from '@/components/AdminGuard';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   DropdownMenu,
@@ -29,12 +30,13 @@ const Header: React.FC = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/books?search=${encodeURIComponent(searchQuery)}`);
-    }
-  };
+ const handleSearch = (e: React.FormEvent) => {
+  e.preventDefault();
+  if (searchQuery.trim()) {
+    setMobileMenuOpen(false); // ✅ close menu on search
+    navigate(`/books?search=${encodeURIComponent(searchQuery)}`);
+  }
+};
 
   const navLinks = [
     { name: 'Home', path: '/' },
@@ -119,7 +121,7 @@ const Header: React.FC = () => {
                     </div>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
-                      <Link to="/my-account" className="cursor-pointer">My Account</Link>
+                     <Link to="/order-tracking" className="cursor-pointer">My Account</Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link to="/order-tracking" className="cursor-pointer">My Orders</Link>
@@ -127,6 +129,16 @@ const Header: React.FC = () => {
                     <DropdownMenuItem asChild>
                       <Link to="/my-rentals" className="cursor-pointer">My Rentals</Link>
                     </DropdownMenuItem>
+                    {isAdminEmail(user?.email) && (
+                   <>
+                   <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                    <Link to="/admin" className="cursor-pointer text-primary font-medium">
+                    Admin Dashboard
+                    </Link>
+                    </DropdownMenuItem>
+                    </>
+                    )}
                     <DropdownMenuItem asChild>
                       <Link to="/wishlist" className="cursor-pointer">Wishlist</Link>
                     </DropdownMenuItem>
@@ -183,7 +195,7 @@ const Header: React.FC = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="Search books..."
+              placeholder="Search books by title or author..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 pr-4 w-full bg-secondary border-0"

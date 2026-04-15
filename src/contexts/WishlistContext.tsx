@@ -13,10 +13,14 @@ interface WishlistContextType {
 const WishlistContext = createContext<WishlistContextType | undefined>(undefined);
 
 export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [items, setItems] = useState<Book[]>(() => {
+const [items, setItems] = useState<Book[]>(() => {
+  try {
     const saved = localStorage.getItem('bookhub-wishlist');
     return saved ? JSON.parse(saved) : [];
-  });
+  } catch {
+    return []; // ✅ safe fallback
+  }
+});
 
   useEffect(() => {
     localStorage.setItem('bookhub-wishlist', JSON.stringify(items));

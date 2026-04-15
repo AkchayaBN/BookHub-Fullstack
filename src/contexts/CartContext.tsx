@@ -21,10 +21,14 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [items, setItems] = useState<CartItem[]>(() => {
+ const [items, setItems] = useState<CartItem[]>(() => {
+  try {
     const saved = localStorage.getItem('bookhub-cart');
     return saved ? JSON.parse(saved) : [];
-  });
+  } catch {
+    return []; // ✅ return empty cart if data is corrupted
+  }
+});
 
   useEffect(() => {
     localStorage.setItem('bookhub-cart', JSON.stringify(items));

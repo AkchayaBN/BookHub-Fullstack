@@ -2,13 +2,32 @@ const express = require("express");
 const router = express.Router();
 const db = require("../config/firebase");
 
+// ============================
+// HELPER
+// ============================
+const serializeBook = (id, data) => ({
+  id,
+  ...data,
+  createdAt: data.createdAt?.toDate
+    ? data.createdAt.toDate().toISOString()
+    : data.createdAt || null,
+});
 
 // ============================
 // CREATE (POST)
 // ============================
 router.post("/", async (req, res) => {
   try {
-    const { title, author, description, price, coverImage } = req.body;
+    const {
+      title,
+      author,
+      description,
+      price,
+      coverImage,
+      category,
+      isFeatured,
+      isBestseller,
+    } = req.body;
 
     if (!title || !author) {
       return res.status(400).json({ error: "Title and Author are required" });
@@ -20,17 +39,18 @@ router.post("/", async (req, res) => {
       description: description || "",
       price: price || 0,
       coverImage: coverImage || "",
+      category: category || "General",      // ✅ added
+      isFeatured: isFeatured || false,      // ✅ added
+      isBestseller: isBestseller || false,  // ✅ added
       createdAt: new Date(),
     };
 
     const docRef = await db.collection("books").add(newBook);
-
     res.status(201).json({ id: docRef.id, ...newBook });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
-
 
 // ============================
 // READ ALL (GET)
@@ -38,12 +58,9 @@ router.post("/", async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const snapshot = await db.collection("books").get();
-
-    const books = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-
+    const books = snapshot.docs.map(doc =>
+      serializeBook(doc.id, doc.data())  // ✅ serialize Timestamps
+    );
     res.json(books);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -56,19 +73,17 @@ router.get("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-
     const doc = await db.collection("books").doc(id).get();
 
     if (!doc.exists) {
       return res.status(404).json({ error: "Book not found" });
     }
 
-    res.json({ id: doc.id, ...doc.data() });
+    res.json(serializeBook(doc.id, doc.data()));  // ✅ serialize Timestamps
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
-
 
 // ============================
 // FULL UPDATE (PUT)
@@ -76,7 +91,16 @@ router.get("/:id", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, author, description, price, coverImage } = req.body;
+    const {
+      title,
+      author,
+      description,
+      price,
+      coverImage,
+      category,
+      isFeatured,
+      isBestseller,
+    } = req.body;
 
     const docRef = db.collection("books").doc(id);
     const doc = await docRef.get();
@@ -91,17 +115,18 @@ router.put("/:id", async (req, res) => {
       description,
       price,
       coverImage,
+      category,
+      isFeatured,
+      isBestseller,
       updatedAt: new Date(),
     };
 
-    await docRef.set(updatedBook);
-
-    res.json({ message: "Book fully updated", id, ...updatedBook });
+    await docRef.update(updatedBook);  // ✅ was set() — now preserves other fields
+    res.json({ message: "Book updated", id, ...updatedBook });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
-
 
 // ============================
 // PARTIAL UPDATE (PATCH)
@@ -119,15 +144,12 @@ router.patch("/:id", async (req, res) => {
     }
 
     updates.updatedAt = new Date();
-
     await docRef.update(updates);
-
     res.json({ message: "Book partially updated", id, ...updates });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
-
 
 // ============================
 // DELETE
@@ -144,12 +166,10 @@ router.delete("/:id", async (req, res) => {
     }
 
     await docRef.delete();
-
     res.json({ message: "Book deleted successfully", id });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
-
 
 module.exports = router;

@@ -34,7 +34,7 @@ const Categories: React.FC = () => {
                   id={category.id}
                   name={category.name}
                   icon={category.icon}
-                  bookCount={categoryCounts[category.id] || 0}
+                  bookCount={categoryCounts[category.name] || 0}
                 />
               </div>
             ))}

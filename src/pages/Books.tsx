@@ -29,7 +29,7 @@ import { useBooks } from '@/hooks/useBooks';
 const Books: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [priceRange, setPriceRange] = useState([0, 50]);
+  const [priceRange, setPriceRange] = useState([0, 1000]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     searchParams.get('category') ? [searchParams.get('category')!] : []
   );
@@ -40,60 +40,71 @@ const Books: React.FC = () => {
 
   const { data: allBooks = [], isLoading } = useBooks();
 
-  const filteredBooks = useMemo(() => {
-    let result = [...allBooks];
+const filteredBooks = useMemo(() => {
+  let result = [...allBooks];
 
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(book => 
-        book.title.toLowerCase().includes(query) ||
-        book.author.toLowerCase().includes(query) ||
-        book.isbn.includes(searchQuery)
-      );
-    }
+  // 👇 TEMPORARY DEBUG
+  console.log('All books categories:', result.map(b => ({ title: b.title, category: b.category })));
+  console.log('Selected categories:', selectedCategories);
 
-    // Category filter
-    if (selectedCategories.length > 0) {
-      result = result.filter(book => selectedCategories.includes(book.category));
-    }
-
-    // Price filter
-    result = result.filter(
-      book => book.price >= priceRange[0] && book.price <= priceRange[1]
+  // Search filter
+  if (searchQuery) {
+    const query = searchQuery.toLowerCase();
+    result = result.filter(book =>
+      book.title.toLowerCase().includes(query) ||
+      book.author.toLowerCase().includes(query)
     );
+  }
 
-    // Special filters
-    if (filterType === 'bestseller') {
-      result = result.filter(book => book.isBestseller);
-    } else if (filterType === 'new') {
-      result = result.filter(book => book.isNewArrival);
-    }
+  // Category filter — case-insensitive
+  if (selectedCategories.length > 0) {
+    result = result.filter(book =>
+      selectedCategories.some(
+        selected => selected.toLowerCase() === book.category?.toLowerCase()
+      )
+    );
+  }
 
-    // Sorting
-    switch (sortBy) {
-      case 'price-low':
-        result.sort((a, b) => a.price - b.price);
-        break;
-      case 'price-high':
-        result.sort((a, b) => b.price - a.price);
-        break;
-      case 'rating':
-        result.sort((a, b) => b.rating - a.rating);
-        break;
-      case 'newest':
-        result.sort((a, b) => b.publicationYear - a.publicationYear);
-        break;
-      case 'title':
-        result.sort((a, b) => a.title.localeCompare(b.title));
-        break;
-      default:
-        // Featured - no additional sorting
-        break;
-    }
+  // Price filter
+  result = result.filter(
+    book => book.price >= priceRange[0] && book.price <= priceRange[1]
+  );
 
-    return result;
-  }, [allBooks, searchQuery, selectedCategories, priceRange, sortBy, filterType]);
+  // Special filters
+  if (filterType === 'bestseller') {
+    result = result.filter(book => book.isBestseller);
+  } else if (filterType === 'new') {
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  result = result.filter(book =>
+    new Date(book.createdAt || '') >= oneWeekAgo
+  );}
+  // Sorting
+  switch (sortBy) {
+    case 'price-low':
+      result.sort((a, b) => a.price - b.price);
+      break;
+    case 'price-high':
+      result.sort((a, b) => b.price - a.price);
+      break;
+    case 'rating':
+      result.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+      break;
+    case 'newest':
+      result.sort((a, b) =>
+        new Date(b.createdAt || '').getTime() -
+        new Date(a.createdAt || '').getTime()
+      );
+      break;
+    case 'title':
+      result.sort((a, b) => a.title.localeCompare(b.title));
+      break;
+    default:
+      break;
+  }
+
+  return result;
+}, [allBooks, searchQuery, selectedCategories, priceRange, sortBy, filterType]);
 
   const toggleCategory = (categoryId: string) => {
     setSelectedCategories(prev =>
@@ -105,7 +116,7 @@ const Books: React.FC = () => {
 
   const clearFilters = () => {
     setSelectedCategories([]);
-    setPriceRange([0, 50]);
+    setPriceRange([0, 1000]);
     setSortBy('featured');
     setSearchParams({});
   };
@@ -141,16 +152,16 @@ const Books: React.FC = () => {
         <h3 className="font-display font-semibold mb-3">Price Range</h3>
         <div className="px-2">
           <Slider
-            value={priceRange}
-            onValueChange={setPriceRange}
-            max={50}
-            step={1}
-            className="mb-2"
-          />
+  value={priceRange}
+  onValueChange={setPriceRange}
+  max={1000}   // ✅ was 50
+  step={1}
+  className="mb-2"
+/>
           <div className="flex justify-between text-sm text-muted-foreground">
-            <span>${priceRange[0]}</span>
-            <span>${priceRange[1]}</span>
-          </div>
+  <span>₹{priceRange[0]}</span>   {/* ✅ changed $ to ₹ since prices are in INR */}
+  <span>₹{priceRange[1]}</span>
+</div>
         </div>
       </div>
 
@@ -218,10 +229,14 @@ const Books: React.FC = () => {
                 ? 'Bestsellers'
                 : filterType === 'new'
                 ? 'New Arrivals'
+                : selectedCategories.length === 1
+                ? `${categories.find(c => c.id === selectedCategories[0])?.name ?? 'Books'}`
                 : 'All Books'}
             </h1>
             <p className="text-muted-foreground">
-              {isLoading ? 'Loading...' : `${filteredBooks.length} ${filteredBooks.length === 1 ? 'book' : 'books'} found`}
+              {isLoading
+                ? 'Loading...'
+                : `${filteredBooks.length} ${filteredBooks.length === 1 ? 'book' : 'books'} found`}
             </p>
           </div>
 
@@ -262,7 +277,7 @@ const Books: React.FC = () => {
                     </SheetContent>
                   </Sheet>
 
-                  {/* Active filters badges */}
+                  {/* Active filter badges */}
                   <div className="hidden md:flex flex-wrap gap-2">
                     {selectedCategories.map(cat => {
                       const category = categories.find(c => c.id === cat);

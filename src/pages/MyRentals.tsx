@@ -11,16 +11,27 @@ import { useBook } from '@/hooks/useBooks';
 import { formatPrice } from '@/lib/currency';
 
 const RentalCard: React.FC<{ rental: any }> = ({ rental }) => {
-  const { data: book } = useBook(rental.book_id);
-  const expiresAt = new Date(rental.expires_at);
-  const isExpired = expiresAt < new Date();
-  const daysLeft = Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+  const { data: book } = useBook(rental.bookId); // ✅ camelCase
 
-  const durationLabel = rental.duration === '1_month' ? '1 Month' : rental.duration === '6_months' ? '6 Months' : '1 Year';
+  // ✅ handle Firestore Timestamp or string
+  const expiresAt = rental.expiresAt?.toDate
+    ? rental.expiresAt.toDate()
+    : new Date(rental.expiresAt);
+
+  const isExpired = expiresAt < new Date();
+  const daysLeft = Math.max(
+    0,
+    Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+  );
+
+  // ✅ map from durationInDays number to label
+  const durationLabel =
+    rental.durationInDays <= 30 ? '1 Month' :
+    rental.durationInDays <= 180 ? '6 Months' : '1 Year';
 
   return (
     <div className="flex gap-4 p-4 rounded-lg bg-card border border-border">
-      <Link to={`/book/${rental.book_id}`} className="flex-shrink-0">
+      <Link to={`/books/${rental.bookId}`} className="flex-shrink-0"> {/* ✅ correct route + field */}
         <img
           src={book?.coverImage || '/placeholder.svg'}
           alt={book?.title || 'Book'}
@@ -28,14 +39,17 @@ const RentalCard: React.FC<{ rental: any }> = ({ rental }) => {
         />
       </Link>
       <div className="flex-1 min-w-0">
-        <Link to={`/book/${rental.book_id}`}>
+        <Link to={`/books/${rental.bookId}`}> {/* ✅ correct route + field */}
           <h3 className="font-display font-semibold hover:text-primary transition-colors">
             {book?.title || 'Loading...'}
           </h3>
         </Link>
         <p className="text-sm text-muted-foreground">{book?.author}</p>
         <div className="flex items-center gap-2 mt-2">
-          <Badge variant={isExpired ? 'destructive' : 'default'} className={!isExpired ? 'bg-accent text-accent-foreground' : ''}>
+          <Badge
+            variant={isExpired ? 'destructive' : 'default'}
+            className={!isExpired ? 'bg-accent text-accent-foreground' : ''}
+          >
             {isExpired ? 'Expired' : 'Active'}
           </Badge>
           <span className="text-xs text-muted-foreground">{durationLabel} plan</span>

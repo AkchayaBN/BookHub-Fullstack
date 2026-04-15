@@ -27,11 +27,22 @@ const books = [
     price: 450,
     coverImage:
       "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=300&q=80",
-    category: "Productivity",
+    category: "Mystery",
     isFeatured: false,
     isBestseller: true,
     createdAt: new Date(),
   },
+  {
+  title: "Rich Dad Poor Dad",
+  author: "Robert Kiyosaki",
+  description: "What the rich teach their kids about money.",
+  price: 399,
+  coverImage: "https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=300&q=80",
+  category: "Self-Help", // ✅ was "fiction" — wrong category entirely
+  isFeatured: true,
+  isBestseller: true,
+  createdAt: new Date(),
+}
 ];
 
 async function seed() {

@@ -12,6 +12,7 @@ import { useCart } from '@/contexts/CartContext';
 import { toast } from '@/hooks/use-toast';
 import { formatPrice } from '@/lib/currency';
 import { useAuth } from '@/contexts/AuthContext';
+import { API_URL } from '@/lib/api';
 const Checkout: React.FC = () => {
   const navigate = useNavigate();
   const { items, getCartTotal, clearCart } = useCart();
@@ -57,14 +58,16 @@ const Checkout: React.FC = () => {
       quantity,
     }));
 
-    const response = await fetch("http://localhost:5000/api/orders", {
+    const response = await fetch(`${API_URL}/orders`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
-        items: orderItems,
+          items: orderItems,
+           shippingCost,        // ✅ add this
+           tax: Math.round(tax), // ✅ add this
       }),
     });
 

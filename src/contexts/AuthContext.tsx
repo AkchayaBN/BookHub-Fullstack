@@ -28,7 +28,7 @@ interface AuthContextType {
     password: string
   ) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
-  getToken: () => Promise<string | null>;
+ getToken: () => Promise<string>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -86,9 +86,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const getToken = async () => {
-    if (!user) return null;
-    return await user.getIdToken();
-  };
+  if (!user) throw new Error('Not authenticated');
+  return await user.getIdToken(true); // ✅ force refresh if expired
+};
 
   return (
     <AuthContext.Provider

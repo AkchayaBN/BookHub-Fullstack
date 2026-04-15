@@ -12,8 +12,8 @@ import {
   Truck,
   Shield,
   RotateCcw,
-  ThumbsUp,
   Loader2,
+  Crown,
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -26,8 +26,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useBook, useBooksByCategory } from '@/hooks/useBooks';
 import { useCart } from '@/contexts/CartContext';
 import { useWishlist } from '@/contexts/WishlistContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/lib/currency';
+import { isAdminEmail } from '@/components/AdminGuard';
 import SamplePdfViewer from '@/components/SamplePdfViewer';
 import RentalModal from '@/components/RentalModal';
 
@@ -39,10 +41,11 @@ const BookDetail: React.FC = () => {
   const [showRental, setShowRental] = useState(false);
   const { addToCart, isInCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
+  const { user } = useAuth();
+  const isAdmin = isAdminEmail(user?.email);
 
   const { data: book, isLoading } = useBook(id);
   const { data: relatedBooksAll = [] } = useBooksByCategory(book?.category || '');
-
   const relatedBooks = relatedBooksAll.filter(b => b.id !== book?.id).slice(0, 4);
 
   if (isLoading) {
@@ -78,9 +81,7 @@ const BookDetail: React.FC = () => {
     ? Math.round(((book.originalPrice - book.price) / book.originalPrice) * 100)
     : 0;
 
-  const handleAddToCart = () => {
-    addToCart(book, quantity);
-  };
+  const handleAddToCart = () => addToCart(book, quantity);
 
   const handleWishlistToggle = () => {
     if (isInWishlist(book.id)) {
@@ -102,7 +103,10 @@ const BookDetail: React.FC = () => {
             <span>/</span>
             <Link to="/books" className="hover:text-foreground">Books</Link>
             <span>/</span>
-            <Link to={`/books?category=${book.category}`} className="hover:text-foreground capitalize">
+            <Link
+              to={`/books?category=${book.category?.toLowerCase()}`}
+              className="hover:text-foreground capitalize"
+            >
               {book.category}
             </Link>
             <span>/</span>
@@ -110,11 +114,7 @@ const BookDetail: React.FC = () => {
           </nav>
 
           {/* Back button */}
-          <Button
-            variant="ghost"
-            className="mb-6"
-            onClick={() => navigate(-1)}
-          >
+          <Button variant="ghost" className="mb-6" onClick={() => navigate(-1)}>
             <ChevronLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
@@ -131,13 +131,9 @@ const BookDetail: React.FC = () => {
                     className="w-full h-full object-cover"
                   />
                 </div>
-                {/* Badges */}
                 <div className="absolute top-4 left-4 flex flex-col gap-2">
                   {book.isBestseller && (
                     <Badge className="bg-primary text-primary-foreground">Bestseller</Badge>
-                  )}
-                  {book.isNewArrival && (
-                    <Badge className="bg-accent text-accent-foreground">New Arrival</Badge>
                   )}
                   {discount > 0 && (
                     <Badge variant="destructive">-{discount}% OFF</Badge>
@@ -149,19 +145,27 @@ const BookDetail: React.FC = () => {
             {/* Details */}
             <div className="space-y-6">
               <div>
-                <p className="text-muted-foreground text-sm mb-2">{book.genre}</p>
+                {book.genre && (
+                  <p className="text-muted-foreground text-sm mb-2">{book.genre}</p>
+                )}
                 <h1 className="text-3xl md:text-4xl font-display font-bold mb-3">{book.title}</h1>
                 <p className="text-lg text-muted-foreground">by {book.author}</p>
               </div>
 
               {/* Rating */}
               <div className="flex items-center gap-4">
-                <StarRating rating={book.rating} showValue reviewCount={book.reviewCount} />
+                <StarRating
+                  rating={book.rating ?? 0}
+                  showValue
+                  reviewCount={book.reviewCount ?? 0}
+                />
               </div>
 
               {/* Price */}
               <div className="flex items-baseline gap-3">
-                <span className="text-4xl font-bold text-primary">{formatPrice(book.price)}</span>
+                <span className="text-4xl font-bold text-primary">
+                  {formatPrice(book.price)}
+                </span>
                 {book.originalPrice && (
                   <span className="text-xl text-muted-foreground line-through">
                     {formatPrice(book.originalPrice)}
@@ -171,11 +175,15 @@ const BookDetail: React.FC = () => {
 
               {/* Availability */}
               <div className="flex items-center gap-2">
-                {book.inStock ? (
+                {book.inStock !== false ? (
                   <>
                     <Check className="w-5 h-5 text-accent" />
                     <span className="text-accent font-medium">In Stock</span>
-                    <span className="text-muted-foreground">({book.stockQuantity} available)</span>
+                    {book.stockQuantity && (
+                      <span className="text-muted-foreground">
+                        ({book.stockQuantity} available)
+                      </span>
+                    )}
                   </>
                 ) : (
                   <span className="text-destructive font-medium">Out of Stock</span>
@@ -184,64 +192,87 @@ const BookDetail: React.FC = () => {
 
               <Separator />
 
-              {/* Quantity & Actions */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <span className="text-sm font-medium">Quantity:</span>
-                  <div className="flex items-center gap-2">
+              {/* ============================
+                  ADMIN VIEW — no shopping
+              ============================ */}
+              {isAdmin ? (
+                <div className="p-5 rounded-xl bg-primary/5 border border-primary/20 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                    <Crown className="w-6 h-6 text-primary" />
+                  </div>
+                  <p className="font-display font-semibold text-primary">Admin View</p>
+                  <p className="text-sm text-muted-foreground">
+                    You are viewing this book as an administrator. Shopping features are disabled for admin accounts.
+                  </p>
+                  <Button asChild variant="outline" className="border-primary text-primary">
+                    <Link to="/admin">Manage in Dashboard</Link>
+                  </Button>
+                </div>
+              ) : (
+                /* ============================
+                    CUSTOMER VIEW — full shopping
+                ============================ */
+                <div className="space-y-4">
+                  {/* Quantity */}
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm font-medium">Quantity:</span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      >
+                        <Minus className="w-4 h-4" />
+                      </Button>
+                      <span className="w-12 text-center font-medium">{quantity}</span>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setQuantity(quantity + 1)}
+                        disabled={!!book.stockQuantity && quantity >= book.stockQuantity}
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-3">
                     <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      size="lg"
+                      className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
+                      onClick={handleAddToCart}
+                      disabled={book.inStock === false || isInCart(book.id)}
                     >
-                      <Minus className="w-4 h-4" />
+                      <ShoppingCart className="w-5 h-5 mr-2" />
+                      {isInCart(book.id) ? 'In Cart' : 'Add to Cart'}
                     </Button>
-                    <span className="w-12 text-center font-medium">{quantity}</span>
                     <Button
+                      size="lg"
                       variant="outline"
-                      size="icon"
-                      onClick={() => setQuantity(quantity + 1)}
-                      disabled={quantity >= book.stockQuantity}
+                      className="flex-1 border-primary text-primary hover:bg-primary/5"
+                      onClick={() => setShowSample(true)}
                     >
-                      <Plus className="w-4 h-4" />
+                      <BookOpen className="w-5 h-5 mr-2" />
+                      Read Online
+                    </Button>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      onClick={handleWishlistToggle}
+                      className={cn(isInWishlist(book.id) && 'text-primary border-primary')}
+                    >
+                      <Heart className={cn('w-5 h-5', isInWishlist(book.id) && 'fill-current')} />
+                    </Button>
+                    <Button size="lg" variant="outline">
+                      <Share2 className="w-5 h-5" />
                     </Button>
                   </div>
                 </div>
-
-                <div className="flex gap-3">
-                  <Button
-                    size="lg"
-                    className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
-                    onClick={handleAddToCart}
-                    disabled={!book.inStock || isInCart(book.id)}
-                  >
-                    <ShoppingCart className="w-5 h-5 mr-2" />
-                    {isInCart(book.id) ? 'In Cart' : 'Add to Cart'}
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="flex-1 border-primary text-primary hover:bg-primary/5"
-                    onClick={() => setShowSample(true)}
-                  >
-                    <BookOpen className="w-5 h-5 mr-2" />
-                    Read Online
-                  </Button>
-                </div>
-                <div className="flex gap-3">
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    onClick={handleWishlistToggle}
-                    className={cn(isInWishlist(book.id) && "text-primary border-primary")}
-                  >
-                    <Heart className={cn("w-5 h-5", isInWishlist(book.id) && "fill-current")} />
-                  </Button>
-                  <Button size="lg" variant="outline">
-                    <Share2 className="w-5 h-5" />
-                  </Button>
-                </div>
-              </div>
+              )}
 
               <Separator />
 
@@ -265,28 +296,38 @@ const BookDetail: React.FC = () => {
               </div>
 
               {/* Book Info */}
-              <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">ISBN</span>
-                  <span className="font-medium">{book.isbn}</span>
+              {(book.isbn || book.pages || book.language || book.publicationYear) && (
+                <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                  {book.isbn && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">ISBN</span>
+                      <span className="font-medium">{book.isbn}</span>
+                    </div>
+                  )}
+                  {book.pages && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Pages</span>
+                      <span className="font-medium">{book.pages}</span>
+                    </div>
+                  )}
+                  {book.language && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Language</span>
+                      <span className="font-medium">{book.language}</span>
+                    </div>
+                  )}
+                  {book.publicationYear && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Published</span>
+                      <span className="font-medium">{book.publicationYear}</span>
+                    </div>
+                  )}
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Pages</span>
-                  <span className="font-medium">{book.pages}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Language</span>
-                  <span className="font-medium">{book.language}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Published</span>
-                  <span className="font-medium">{book.publicationYear}</span>
-                </div>
-              </div>
+              )}
             </div>
           </div>
 
-          {/* Tabs Section */}
+          {/* Tabs */}
           <Tabs defaultValue="description" className="mb-16">
             <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
               <TabsTrigger
@@ -299,14 +340,14 @@ const BookDetail: React.FC = () => {
                 value="reviews"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3"
               >
-                Reviews ({book.reviewCount})
+                Reviews ({book.reviewCount ?? 0})
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="description" className="pt-6">
               <div className="prose max-w-none">
                 <p className="text-lg leading-relaxed text-muted-foreground">
-                  {book.description}
+                  {book.description || 'No description available.'}
                 </p>
               </div>
             </TabsContent>
@@ -334,7 +375,8 @@ const BookDetail: React.FC = () => {
 
       <Footer />
 
-      {book && (
+      {/* Modals — only for non-admin */}
+      {!isAdmin && book && (
         <>
           <SamplePdfViewer
             book={book}
