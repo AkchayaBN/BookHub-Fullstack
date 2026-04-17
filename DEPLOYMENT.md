@@ -11,7 +11,7 @@ Create a Render Web Service from the GitHub repo.
 
 Settings:
 
-- Root directory: `bookjhub/backend`
+- Root directory: `backend`
 - Build command: `npm install`
 - Start command: `npm start`
 
@@ -33,7 +33,7 @@ Create a Vercel project from the same GitHub repo.
 Settings:
 
 - Framework preset: `Vite`
-- Root directory: `bookjhub`
+- Root directory: leave empty / repository root
 - Build command: `npm run build`
 - Output directory: `dist`
 
